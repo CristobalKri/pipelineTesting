@@ -4,7 +4,7 @@ pipeline {
     environment {
         PROJECT_NAME = "flask-vulnerable-app"
         SONARQUBE_URL = "http://localhost:9000"  // Update with your SonarQube instance URL
-        SONARQUBE_TOKEN = "your-sonarqube-token"  // Add your SonarQube token here
+        SONARQUBE_TOKEN = "sqa_04ed01f9598ffbf592349e127e7f3c766357eb9c"  // Add your SonarQube token here
     }
 
     stages {
