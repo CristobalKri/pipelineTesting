@@ -14,21 +14,12 @@ pipeline {
             }
         }
 
-        stage('Install Python') {
-            steps {
-                // Install Python and dependencies (without sudo)
-                sh '''
-                    pacman -Syu --noconfirm python python-pip python-virtualenv
-                    pip install --upgrade pip
-                '''
-            }
-        }
-
         stage('Set Up Environment') {
             steps {
                 sh '''
                     python3 -m venv venv
                     . venv/bin/activate
+                    pip install --upgrade pip
                     pip install -r requirements.txt
                 '''
             }
