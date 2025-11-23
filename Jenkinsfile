@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         PROJECT_NAME = "flask-vulnerable-app"
-        SONARQUBE_URL = "http://sonarqube:9000"  // Update with your SonarQube instance URL
+        SONARQUBE_URL = "http://localhost:9000"  // Update with your SonarQube instance URL
         SONARQUBE_TOKEN = "your-sonarqube-token"  // Add your SonarQube token here
     }
 
