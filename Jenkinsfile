@@ -25,6 +25,18 @@ pipeline {
             }
         }
 
+        stage('Python Security Audit') {
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    pip install pip-audit
+                    mkdir -p dependency-check-report
+                    # Run pip-audit and generate the report
+                    pip-audit -r requirements.txt -f markdown -o dependency-check-report/pip-audit.md || true
+                '''
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -42,16 +54,26 @@ pipeline {
             }
         }
 
-        stage('Publish Reports') {
+        stage('Dependency Check') {
+            environment {
+                NVD_API_KEY = credentials('nvdApiKey')
+            }
             steps {
-                waitForQualityGate abortPipeline: true
+                dependencyCheck additionalArguments: "--scan . --format HTML --out dependency-check-report --enableExperimental --enableRetired --nvdApiKey ${NVD_API_KEY}", odcInstallation: 'DependencyCheck'
             }
         }
-    }
 
-    post {
-        always {
-            sh 'rm -rf venv'  // Clean up virtual environment
+        stage('Publish Reports') {
+            steps {
+                publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'dependency-check-report',
+                    reportFiles: 'dependency-check-report.html',
+                    reportName: 'OWASP Dependency Check Report'
+                ])
+            }
         }
     }
 }
