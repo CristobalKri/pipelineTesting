@@ -55,22 +55,25 @@ pipeline {
             }
         }
 
-//        stage('Dependency Check') {
-//            environment {
-//                NVD_API_KEY = credentials('nvdApiKey')
-//            }
-//            steps {
-//                dependencyCheck additionalArguments: "--scan . --format HTML --out dependency-check-report --enableExperimental --enableRetired --nvdApiKey ${NVD_API_KEY}", odcInstallation: 'DependencyCheck'
-//            }
-//        }
+       stage('Dependency Check') {
+           environment {
+               NVD_API_KEY = credentials('nvdApiKey')
+           }
+           steps {
+            sh '''
+                    . venv/bin/activate
+               dependencyCheck additionalArguments: "--scan . --format HTML --out dependency-check-report --enableExperimental --enableRetired --nvdApiKey ${NVD_API_KEY}", odcInstallation: 'DependencyCheck'
+            '''     
+           }
+       }
 
-        stage('Dependency Check') {
-            steps {
-            withCredentials([string(credentialsId: 'nvdApiKey', variable: 'NVD_API_KEY')]) {
-                dependencyCheck additionalArguments: "--scan . --format HTML --out dependency-check-report --enableExperimental --enableRetired --nvdApiKey ${NVD_API_KEY}", odcInstallation: 'DependencyCheck'
-            }
-        }
-    }
+    //     stage('Dependency Check') {
+    //         steps {
+    //         withCredentials([string(credentialsId: 'nvdApiKey', variable: 'NVD_API_KEY')]) {
+    //             dependencyCheck additionalArguments: "--scan . --format HTML --out dependency-check-report --enableExperimental --enableRetired --nvdApiKey ${NVD_API_KEY}", odcInstallation: 'DependencyCheck'
+    //         }
+    //     }
+    // }
 
         stage('Publish Reports') {
             steps {
