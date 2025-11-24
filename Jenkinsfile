@@ -43,6 +43,7 @@ pipeline {
                     def scannerHome = tool 'SonarQubeScanner'
                     withSonarQubeEnv('SonarQubeScanner') {
                         sh """
+                            . venv/bin/activate
                             ${scannerHome}/bin/sonar-scanner \
                                 -Dsonar.projectKey=${PROJECT_NAME} \
                                 -Dsonar.sources=. \
@@ -54,14 +55,24 @@ pipeline {
             }
         }
 
+//        stage('Dependency Check') {
+//            environment {
+//                NVD_API_KEY = credentials('nvdApiKey')
+//            }
+//            steps {
+//                dependencyCheck additionalArguments: "--scan . --format HTML --out dependency-check-report --enableExperimental --enableRetired --nvdApiKey ${NVD_API_KEY}", odcInstallation: 'DependencyCheck'
+//            }
+//        }
+
         stage('Dependency Check') {
-            environment {
-                NVD_API_KEY = credentials('nvdApiKey')
-            }
             steps {
+            withCredentials([string(credentialsId: 'nvdApiKey', variable: 'NVD_API_KEY')]) {
+             sh '''. venv/bin/activate
                 dependencyCheck additionalArguments: "--scan . --format HTML --out dependency-check-report --enableExperimental --enableRetired --nvdApiKey ${NVD_API_KEY}", odcInstallation: 'DependencyCheck'
+                '''
             }
         }
+    }
 
         stage('Publish Reports') {
             steps {
