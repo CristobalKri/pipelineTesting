@@ -1,0 +1,204 @@
+1.	Hay que instalar WSL en Windows, en salas de Duoc esta instalado, pero en caso de que no lo este hay que ir a la terminal de Windows e instalarlo con:
+wsl –install
+2.	Una vez ya tengamos WSL, hay que entrar a la terminal de WSL. En la misma terminal de Windows se puede entrar con solo escribir 
+wsl
+	(Recomiendo cambiar a user root para trabajar en este caso) 
+		sudo -i
+3.	Dentro de WSL, vamos a actualizar los repositorios para instalar Docker
+apt update
+apt install docker-cli
+Una vez listo, creamos una red interna con Docker para que haya un orden y comunicación entre contenedores.
+docker network create jenkins-net
+
+4.	Luego, empezamos con la creación de contenedores 
+a.	Jenkins
+docker run -d \
+  --name jenkins \
+  --user root \
+  --network jenkins-net \
+  -p 8080:8080 -p 50000:50000 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v jenkins_home:/var/jenkins_home \
+  jenkins/jenkins:lts-jdk17
+
+
+
+
+
+
+ 
+
+b.	SonarQube
+docker run -d \
+  --name sonarqube \
+  --network jenkins-net \
+  -p 9000:9000 \
+  sonarqube:lts-community
+
+
+5.	Una vez creados los contenedores verificamos que los contenedores estén iniciados y corriendo.
+docker ps        <- Muestra contendores corriendo.
+docker ps -a     <- Muestra todos los contenedores.
+	En caso de que no estén corriendo los contendores, se pueden iniciar con:
+		docker start <nombre del contenedor>
+6.	Ahora con todos los contendores listos, podemos entrar al servidor de Jenkins y SonarQube para empezar a trabajar. Primero, hay que conocer la IP de WSL.
+ifconfig
+	En caso de que no se encuentre el comando hay que instalar la herramienta.
+		apt install net-tools
+En el output de ifconfig hay que buscar la interfaz de red, en muchos casos es la interfaz de red: eth0
+ 
+…
+
+
+
+
+
+
+
+
+Con esta IP ya lista, podemos entrar a Jenkins en el navegador del computador.
+		http://<< IP ETH0 >>:8080 
+7.	Una vez dentro de la página, podemos iniciar con la contraseña inicial del usuario admin que podemos encontrar en los logs del contendor y en el directorio que nos especifica.
+/var/jenkins_home/secrets/
+Para poder navegar hasta el directorio, hay que entrar a la consola del contenedor de Jenkins desde WSL, esto se logra con el comando:
+		docker exec -it jenkins bash
+Ya dentro de la terminal de Jenkins podemos ver la contraseña con el comando:
+root@46fe1396ea31:/# more /var/jenkins_home/secrets/initialAdminPassword
+
+ 
+Obteniendo la contraseña, simplemente la copiamos y pegamos en la página.
+8.	Cuando iniciemos nos pedirá seleccionar que plugin instalar.
+ 
+Se recomienda instalar los plugin sugeridos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+9.	Cuando estén instalados los plugin, nos pedirá crear un usuario, se recomienda saltar esta sección y quedarse con admin 
+ 
+
+Luego de eso, nos pedirá configurar la URL de la instancia, hay que dejar la predeterminada simplemente. 
+	Y listo, ya estamos en Jenkins.
+
+10.	 Ahora instalaremos los plugin que necesitamos específicamente para nuestro trabajo, en este caso son:
+-	SonarQube Scanner for Jenkins.
+-	OWASP Dependency-Check Plugin.
+-	HTML Publisher plugin.
+Iremos a la pestaña de “Plugin” en las configuraciones de Jenkins.
+ 
+
+
+
+	Una vez en “Plugin” seleccionamos en “Available plugins” para buscarlos.
+	 
+	Y luego en “Installed plugins” nos aseguramos que estén instalados.
+11.	 Ahora que tenemos los Plugin necesarios, vamos a definir algunas credenciales (API Key y Token) necesarias para SonarQube y Dependency-Check. Para esto iremos a la sección de “Credentials” en las configuraciones.
+ 
+
+
+
+
+
+
+Iremos a “Add credentials” 
+ 
+ 
+Tanto la credencial para SonarQube como para Dependency-Check serán de tipo/kind Secret text.
+
+Ya en “New credentials”, vamos a agregar primero alguna de las dos necesarias. Partamos por SonarQube, en otra pestaña iremos a su página para conseguir una API Key (el contenedor tiene que estar iniciado)
+	http://<< IP ETH0 >>:9000
+ 
+Las credenciales por defecto son admin:admin, luego de iniciar nos pedirá cambiar la contraseña por defecto, cualquiera sirve.
+Una vez en el menú de SonarQube vamos a “My Account”.
+ 
+
+
+Y luego en la sección de “Security” rellenamos el formulario de Tokens para obtener uno propio.
+ 
+Ya con este podemos rellenar el formulario de Jenkins. (Recomiendo usar el mismo nombre de la imagen -> sonarQubeToken)
+ 
+Y para la segunda credencial (Dependency-Check – API Key) tendremos que ir a la página oficial de NVD. https://nvd.nist.gov/developers/request-an-api-key 
+ 
+Cuando rellenemos el formulario este nos enviara un correo con el token para activar la API Key.
+ 
+ 
+
+Ahora con esa API Key tendremos las credenciales necesarias.
+ 
+12.	 Ahora como último, hay que definir las Tools y Sistema.
+En la pantalla de “Tools”, hay que definir instalaciones. 
+(Recomiendo usar los mismos nombres que las imágenes).
+SonarQubeScanner.
+ 
+Maven.
+ 
+Dependency-Check.
+ 
+JDK.
+ 
+Y en la configuración de “System”, buscamos la sección de SonarQube servers
+ 
+13.	Ahora vamos a crear una nueva tarea en Jenkins, la tarea debe ser de tipo Pipeline. 
+Luego en la configuracion de esa tarea, en la seccion “Pipeline” vamos a la seccion de Script, y como definicion escogemos “Pipeline script from SCM” en donde indicaremos la URL de nuestro repositorio con todo lo necesario.
+ 
+Algo importante en esta sección es cambiar el nombre de la Branch de Github que usaremos, en mi caso es */main
+ 
+
+Nota: Adjunto a este documento estarán los archivos necesarios para testear, los cuales deberán estar en un repositorio de Github público. No olviden también cambiar las variables declaradas en el Script de nombre ‘Jenkinsfile’
+ 
+Principalmente las variables SONARQUBE_TOKEN con el token obtenido anteriormente, y TARGET_URL con la IP de la maquina WSL junto al puerto 5000, que es en donde levantaremos la app vulnerable para testear.
+
+
+
+
+
+
+
+14.	Ahora como último, debemos de levantar el servidor e iniciar la Pipeline.
+En la terminal de WSL clonaremos el mismo repositorio que definimos en la Pipeline anteriormente.
+	git clone <URL DE GIT>
+ 
+Ahora vamos a instalar Flask para levantar el servidor vulnerable, para esto necesitamos crear un entorno aislado de Python, ya que Linux “llora” si intentas instalar paquetes directamente con pip en el sistema.
+
+apt-get update
+apt-get install -y python3 python3-venv python3-pip
+apt install python3.12-venv
+python3 -m venv .venv
+source .venv/bin/activate
+ 
+
+
+Ahora con todo lo necesario y el servidor vulnerable funcionando podemos ejecutar el Pipeline. 
+ 
+ 
+Entrando al Pipeline, en la sección de Builds se puede observar el progreso en tiempo real si vas a “Console Output”.
+ 
+…
+
+Este proceso demorara su tiempo porque Jenkins está instalando programas (como python3, pip-audit, etc), actualizando la base de datos de vulnerabilidades que obtiene desde la NVD, y entre otros procesos...
+ 
+Como una explicación adicional mientras termina ese proceso: Sin la API Key de la NVD este proceso demoraría 30 minutos aproximado, en cambio con API Key que solicitamos este proceso no demoró ni 5 minutos… Por otro lado, el token SQA nos sirve para poder utilizar SonarQube, sin el token nos lanzaría un error y dependiendo de como este estructurado el script nos puede botar todo.
+ 
+Ahora que terminó y con un SUCCESS, podemos ver los resultados del Dependency-Check y pip-audit en el Workspace seleccionando el directorio que esta resaltado en azul.
+  
+ 
+Ya dentro de la ruta podemos descargar los contenidos, los informes se encuentran en la carpeta dependency-check-report.
+ 
+Por último en el caso de SonarQube, tenemos que ir a la página del servidor SonarQube en el puerto 9000. http://<< IP ETH0 >>:9000
+Ahí estará nuestro resultado. 🐈
+ 
+
+
+
+
+
